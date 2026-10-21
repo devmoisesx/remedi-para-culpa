@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dotô, existe remédio para culpa?</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      font-family: 'Georgia', 'Times New Roman', serif;
+      color: #f5f0e1;
+      display: flex;
+      flex-direction: column;
+      background: #1a120b url('./fundo.jpg') center/cover no-repeat fixed;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, .9);
+    }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse at center, rgba(0,0,0,.15) 0%, rgba(0,0,0,.65) 100%);
+      z-index: -1;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+      gap: 2rem;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 6vw, 4.5rem);
+      font-weight: 700;
+      letter-spacing: 1px;
+      line-height: 1.2;
+      max-width: 22ch;
+    }
+
+    h1 .destaque {
+      display: block;
+      color: #e8b04b;
+      font-style: italic;
+    }
+
+    .creditos {
+      font-size: 1rem;
+      opacity: .75;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+
+    /* ---- Botão ---- */
+    #btnFalar {
+      font-family: inherit;
+      font-size: clamp(1.1rem, 3vw, 1.6rem);
+      padding: 1rem 2.5rem;
+      border: 3px solid #e8b04b;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, .55);
+      color: #f5f0e1;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: .7rem;
+      transition: all .25s ease;
+      backdrop-filter: blur(4px);
+    }
+
+    #btnFalar:hover {
+      background: #e8b04b;
+      color: #1a120b;
+      transform: scale(1.05);
+      text-shadow: none;
+    }
+
+    #btnFalar .icone { font-size: 1.4em; }
+
+    #btnFalar.tocando .icone {
+      animation: pulsar 1s ease-in-out infinite;
+    }
+
+    @keyframes pulsar {
+      0%, 100% { transform: scale(1); }
+      50%      { transform: scale(1.35); }
+    }
+
+    footer {
+      padding: 1.2rem;
+      text-align: center;
+      font-size: .85rem;
+      opacity: .6;
+    }
+
+    footer a { color: #e8b04b; text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="overlay"></div>
+
+  <main>
+    <h1>
+      &mdash; Dotô, <span class="destaque">existe remédio para culpa?</span>
+    </h1>
+
+    <p class="creditos">Carandiru &middot; 2003</p>
+
+    <button id="btnFalar" type="button" aria-live="polite">
+      <span class="icone" id="icone">&#9654;&#xFE0E;</span>
+      <span id="texto">Da uma ouvida</span>
+    </button>
+  </main>
+
+  <footer>
+    &mdash; Dotô&hellip; existe remédio pra culpa?<br />
+    &mdash; Existe. Chama&hellip; consciência pesada. Ela não te deixa nervosa.
+  </footer>
+
+  <!-- Player oficial do YouTube incrustado (invisível/1px é bloqueado, então fica fora da tela) -->
+  <iframe id="playerYT"
+          src="https://www.youtube-nocookie.com/embed/JzbGRQgq17s?enablejsapi=1&autoplay=0&controls=0&start=0&mute=0"
+          title="Carandiru - Doutor, existe remédio para culpa?"
+          style="position:absolute; left:-9999px; top:-9999px; width:320px; height:180px;"
+          frameborder="0" allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+
+  <script>
+    // ---- Preferência: arquivo local fala.mp3 (com ganho estourado) ----
+    // ---- Se não existir: player oficial do YouTube ----
+    const VIDEO_ID = 'JzbGRQgq17s';
+    const INICIO_FALA = 0; // seg (só usado no YouTube)
+
+    const btn   = document.getElementById('btnFalar');
+    const icone = document.getElementById('icone');
+    const texto = document.getElementById('texto');
+    let pronto = false;
+    let player = null;
+    let modo = 'carregando'; // 'local' | 'youtube'
+    let ctx, el, ctl;
+
+    function setTocando(esta) {
+      btn.classList.toggle('tocando', esta);
+      icone.textContent = esta ? '\u23F8' : '\u25B6\uFE0E';
+      texto.textContent = esta ? 'Tocando\u2026' : 'Da uma ouvida';
+    }
+
+    // ---------- Modo local (GANHO > 1x só via http; file:// toca direto) ----------
+    function iniciarLocal() {
+      el = new Audio('./fala.mp3');
+      el.volume = 1; // volume máximo possível
+
+      const http = location.protocol === 'http:' || location.protocol === 'https:';
+
+      if (http) {
+        // Servido por http: dá pra usar Web Audio e amplificar (estourado de verdade)
+        ctx = new AudioContext();
+        const fonte  = ctx.createMediaElementSource(el);
+        const ganho  = ctx.createGain();
+        ganho.gain.value = 12;  // ESTOURADO: volume x12 (distorce de propósito)
+        fonte.connect(ganho).connect(ctx.destination);
+      }
+
+      el.addEventListener('canplaythrough', () => {
+        if (modo === 'carregando') {
+          modo = 'local';
+          ctl = {
+            async play()  { if (ctx) await ctx.resume(); el.currentTime = 0; await el.play(); },
+            pause()       { el.pause(); },
+            get tocando() { return !el.paused; }
+          };
+          console.log(http
+            ? 'Modo local: Web Audio ativo, volume x12 (ESTOURADO).'
+            : 'Modo local (file://): tocando direto, sem amplificação (CORS bloqueia Web Audio aqui).');
+        }
+      }, { once: true });
+
+      el.addEventListener('error', () => {
+        if (modo === 'carregando') iniciarYouTube();  // sem arquivo → YouTube
+      });
+
+      el.load();
+    }
+
+    // ---------- Modo YouTube (fallback) ----------
+    function iniciarYouTube() {
+      modo = 'youtube';
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      document.head.appendChild(tag);
+
+      window.onYouTubeIframeAPIReady = function () {
+        player = new YT.Player('playerYT', {
+          videoId: VIDEO_ID,
+          playerVars: { autoplay: 0, controls: 0, start: INICIO_FALA, playsinline: 1 },
+          events: {
+            onReady: () => { pronto = true; player.setVolume(100); },
+            onStateChange: (e) => {
+              if (e.data === YT.PlayerState.PLAYING)  setTocando(true);
+              if (e.data === YT.PlayerState.PAUSED ||
+                  e.data === YT.PlayerState.ENDED)    setTocando(false);
+            }
+          }
+        });
+      };
+    }
+
+    btn.addEventListener('click', () => {
+      if (modo === 'local' && ctl)      { ctl.tocando ? ctl.pause() : ctl.play(); }
+      else if (modo === 'youtube' && pronto && player) {
+        if (player.getPlayerState() === 1) { player.pauseVideo(); }
+        else { player.seekTo(INICIO_FALA, true); player.setVolume(100); player.playVideo(); }
+      }
+    });
+
+    iniciarLocal();
+  </script>
+</body>
+</html>
