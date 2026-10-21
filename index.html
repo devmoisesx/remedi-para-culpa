@@ -116,6 +116,10 @@
       <span class="icone" id="icone">&#9654;&#xFE0E;</span>
       <span id="texto">Da uma ouvida</span>
     </button>
+
+    <p id="contador" style="opacity:.7; font-size:.95rem; margin:0;">
+      Clicado <strong id="qtd">0</strong> vez(es)
+    </p>
   </main>
 
   <footer>
@@ -143,6 +147,18 @@
     let player = null;
     let modo = 'carregando'; // 'local' | 'youtube'
     let ctx, el, ctl;
+
+    // ---- Contador de cliques (persistente, por navegador) ----
+    const CHAVE_CONTADOR = 'remedi-para-culpa-cliques';
+    let cliques = parseInt(localStorage.getItem(CHAVE_CONTADOR) || '0', 10) || 0;
+    const qtd = document.getElementById('qtd');
+    qtd.textContent = cliques.toLocaleString('pt-BR');
+
+    function registrarClique() {
+      cliques++;
+      localStorage.setItem(CHAVE_CONTADOR, String(cliques));
+      qtd.textContent = cliques.toLocaleString('pt-BR');
+    }
 
     function setTocando(esta) {
       btn.classList.toggle('tocando', esta);
@@ -211,6 +227,7 @@
     }
 
     btn.addEventListener('click', () => {
+      registrarClique();
       if (modo === 'local' && ctl)      { ctl.tocando ? ctl.pause() : ctl.play(); }
       else if (modo === 'youtube' && pronto && player) {
         if (player.getPlayerState() === 1) { player.pauseVideo(); }
